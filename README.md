@@ -4,7 +4,9 @@ Native file viewer for react-native. Preview any type of file supported by the m
 
 **iOS**: it uses [QuickLook Framework](https://developer.apple.com/library/content/documentation/FileManagement/Conceptual/DocumentInteraction_TopicsForIOS/Articles/UsingtheQuickLookFramework.html)
 
-**Android**: it uses `ACTION_VIEW` Intent
+**Android**: it uses `ACTION_VIEW` Intent to start the default app associated with the specified file.
+
+**Windows**: Start the default app associated with the specified file.
 
 ## Getting started
 
@@ -16,10 +18,17 @@ or
 
 ### Mostly automatic installation
 
-`$ react-native link`
+`$ react-native link react-native-file-viewer`
 
 ### Manual installation
 
+
+#### iOS (CocoaPods)
+
+Add the following to you Podfile:
+```
+pod 'RNFileViewer', :path => '../node_modules/react-native-file-viewer/ios`
+```
 
 #### iOS
 
@@ -30,7 +39,7 @@ or
 
 #### Android
 
-1. Open up `android/app/src/main/java/[...]/MainActivity.java`
+1. Open up `android/app/src/main/java/[...]/MainApplication.java`
   - Add `import com.vinzscam.reactnativefileviewer.RNFileViewerPackage;` to the imports at the top of the file
   - Add `new RNFileViewerPackage()` to the list returned by the `getPackages()` method
 2. Append the following lines to `android/settings.gradle`:
@@ -64,24 +73,73 @@ or
 	....
 	```
 
+#### Windows
+
+Follow the instructions in the ['Linking Libraries'](https://github.com/Microsoft/react-native-windows/blob/master/docs/LinkingLibrariesWindows.md) documentation on the react-native-windows GitHub repo. For the first step of adding the project to the Visual Studio solution file, the path to the project should be `../node_modules/react-native-file-viewer/windows/RNFileViewer/RNFileViewer.csproj`.
+
 ## API
 
-### `open(filepath: string, displayName?: string): Promise<void>`
+### `open(filepath: string, options?: Object): Promise<void>`
 
 Parameter | Type | Description
 --------- | ---- | -----------
 **filepath** | string | The absolute path where the file is stored. The file needs to have a valid extension to be successfully detected. Use [react-native-fs constants](https://github.com/itinance/react-native-fs#constants) to determine the absolute path correctly.
-**displayName** (optional) | string | Customize the QuickLook title on iOS. It has no effect on Android.
+**options** (optional) | Object | Some options to customize the behaviour. See below.
 
+#### Options
+
+Parameter | Type | Description
+--------- | ---- | -----------
+**displayName** (optional) | string | Customize the QuickLook title (iOS only).
+**onDismiss** (optional) | function | Callback invoked when the viewer is being dismissed (iOS and Android only).
+**showOpenWithDialog** (optional) | boolean | If there is more than one app that can open the file, show an *Open With* dialogue box (Android only).
+**showAppsSuggestions** (optional) | boolean | If there is not an installed app that can open the file, open the Play Store with suggested apps (Android only).
 
 ## Usage
 
 ### Open a local file
+
 ```javascript
 import FileViewer from 'react-native-file-viewer';
 
 const path = // absolute-path-to-my-local-file.
 FileViewer.open(path)
+.then(() => {
+	// success
+})
+.catch(error => {
+	// error
+});
+```
+
+### Pick up and open a local file (using [react-native-document-picker](https://github.com/Elyx0/react-native-document-picker))
+
+```javascript
+import FileViewer from 'react-native-file-viewer';
+import { DocumentPicker, DocumentPickerUtil } from 'react-native-document-picker';
+
+DocumentPicker.show({
+  filetype: [DocumentPickerUtil.allFiles()],
+}, (error, res) => {
+  if(res) {
+    FileViewer.open(res.uri)
+    .then(() => {
+      // success
+    })
+    .catch(_err => {
+      // error
+    });
+  }
+});
+```
+
+### Prompt the user to choose an app to open the file with (if there are multiple installed apps that support the mimetype)
+
+```javascript
+import FileViewer from 'react-native-file-viewer';
+
+const path = // absolute-path-to-my-local-file.
+FileViewer.open(path, { showOpenWithDialog: true })
 .then(() => {
 	// success
 })
@@ -110,12 +168,11 @@ RNFS.copyFileAssets(file, dest)
 .then(() => {
    // success
 })
-.catch(_err => {
+.catch(error => {
    /* */
 });
 
 ```
-
 
 ### Download and open a file (using [react-native-fs](https://github.com/itinance/react-native-fs))
 No function about file downloading has been implemented in this package.

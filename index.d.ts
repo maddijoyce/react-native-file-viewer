@@ -1,4 +1,14 @@
-export function open(path: string, title?: string) : Promise<void>;
+interface RNFileViewerOptions {
+  displayName?: string;
+  showAppsSuggestions?: boolean;
+  showOpenWithDialog?: boolean;
+  onDismiss?(): any;
+}
+
+export function open(
+  path: string,
+  options?: RNFileViewerOptions | string
+): Promise<void>;
 export default {
-  open,
+  open
 };
