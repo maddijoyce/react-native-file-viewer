@@ -1,6 +1,10 @@
 
 #import "RNFileViewerManager.h"
 #import <QuickLook/QuickLook.h>
+#import <React/RCTConvert.h>
+
+#define OPEN_EVENT @"RNFileViewerDidOpen"
+#define DISMISS_EVENT @"RNFileViewerDidDismiss"
 
 @interface File: NSObject<QLPreviewItem>
 
@@ -11,24 +15,8 @@
 
 @end
 
-@interface FileDelegate: NSObject<QLPreviewControllerDataSource, QLPreviewControllerDelegate>
-
-@property(nonatomic, strong) File *file;
-
+@interface RNFileViewer ()<QLPreviewControllerDelegate>
 @end
-
-@implementation FileDelegate
-
-- (NSInteger)numberOfPreviewItemsInPreviewController:(QLPreviewController *)controller{
-    return 1;
-}
-
-- (id <QLPreviewItem>)previewController:(QLPreviewController *)controller previewItemAtIndex:(NSInteger)index{
-    return self.file;
-}
-
-@end
-
 
 @implementation File
 
@@ -38,6 +26,38 @@
         _previewItemTitle = title;
     }
     return self;
+}
+
+@end
+
+@interface CustomQLViewController: QLPreviewController<QLPreviewControllerDataSource>
+
+@property(nonatomic, strong) File *file;
+@property(nonatomic, strong) NSNumber *invocation;
+
+@end
+
+@implementation CustomQLViewController
+
+- (instancetype)initWithFile:(File *)file identifier:(NSNumber *)invocation {
+    if(self = [super init]) {
+        _file = file;
+        _invocation = invocation;
+        self.dataSource = self;
+    }
+    return self;
+}
+
+- (BOOL)prefersStatusBarHidden {
+    return UIApplication.sharedApplication.isStatusBarHidden;
+}
+
+- (NSInteger)numberOfPreviewItemsInPreviewController:(QLPreviewController *)controller{
+    return 1;
+}
+
+- (id <QLPreviewItem>)previewController:(QLPreviewController *)controller previewItemAtIndex:(NSInteger)index{
+    return self.file;
 }
 
 @end
@@ -79,22 +99,29 @@
     }
 }
 
+- (void)previewControllerWillDismiss:(CustomQLViewController *)controller {
+    [self sendEventWithName:DISMISS_EVENT body: @{@"id": controller.invocation}];
+}
+
 RCT_EXPORT_MODULE()
 
-RCT_REMAP_METHOD(open,
-  path:(NSString *)path
-  title:(NSString *)title
-  resolver:(RCTPromiseResolveBlock)resolve
-  rejecter: (RCTPromiseRejectBlock)reject)
+- (NSArray<NSString *> *)supportedEvents {
+    return @[OPEN_EVENT, DISMISS_EVENT];
+}
+
+RCT_EXPORT_METHOD(open:(NSString *)path invocation:(nonnull NSNumber *)invocationId
+    options:(NSDictionary *)options)
 {
-    FileDelegate *delegate = [FileDelegate new];
-    delegate.file = [[File alloc] initWithPath: path title:title];
-    
-    QLPreviewController *controller = [QLPreviewController new];
-    controller.delegate = delegate;
-    controller.dataSource = delegate;
-    
-    [[RNFileViewer topViewController] presentViewController:controller animated:YES completion:^{ resolve(nil); }];
+    NSString *displayName = [RCTConvert NSString:options[@"displayName"]];
+    File *file = [[File alloc] initWithPath:path title:displayName];
+
+    QLPreviewController *controller = [[CustomQLViewController alloc] initWithFile:file identifier:invocationId];
+    controller.delegate = self;
+
+    typeof(self) __weak weakSelf = self;
+    [[RNFileViewer topViewController] presentViewController:controller animated:YES completion:^{
+        [weakSelf sendEventWithName:OPEN_EVENT body: @{@"id": invocationId}];
+    }];
 }
 
 @end
